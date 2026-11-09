@@ -1,17 +1,17 @@
-From 54743b2457ccfcc3a767ebac56a9cd3b7eb00ac5 Mon Sep 17 00:00:00 2001
+From 2e4f4aa9de966f5539021746a6e4984eccc9a7da Mon Sep 17 00:00:00 2001
 From: Wrm <65333331+wklcoca@users.noreply.github.com>
 Date: Sat, 7 Nov 2026 14:34:08 +0800
-Subject: [PATCH 05/18] root112: RuntimeController.kt
+Subject: [PATCH 05/21] root112: RuntimeController.kt
 
 ---
  .../dsh_app/runtime/RuntimeController.kt         | 16 +++++++++++++++-
  1 file changed, 15 insertions(+), 1 deletion(-)
 
 diff --git a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeController.kt b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeController.kt
-index 8024a98..6830004 100644
+index 1b6d7b0..968c6c5 100644
 --- a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeController.kt
 +++ b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeController.kt
-@@ -144,6 +144,9 @@ class RuntimeController private constructor(private val app: Context) : DshProce
+@@ -148,6 +148,9 @@ class RuntimeController private constructor(private val app: Context) : DshProce
          "directEngineAvailable" to directEngineAvailable(),
          "directEngineActive" to (process?.executionMode == "direct"),
          "directEngineFallbackReason" to lastLaunch?.fallbackReason,
@@ -21,7 +21,7 @@ index 8024a98..6830004 100644
          "currentExecutionMode" to process?.executionMode,
          "launchSelectedMode" to lastLaunch?.selectedMode,
          "launchSpawned" to (lastLaunch?.spawned == true),
-@@ -194,6 +197,16 @@ class RuntimeController private constructor(private val app: Context) : DshProce
+@@ -198,6 +201,16 @@ class RuntimeController private constructor(private val app: Context) : DshProce
          }
      }
  
@@ -38,7 +38,7 @@ index 8024a98..6830004 100644
      /** While a process is up: its mode; otherwise the mode the next start will use. */
      private fun currentModeSafe(): Boolean {
          val active = process != null || phase == Phase.STARTING || phase == Phase.RUNNING || phase == Phase.STOPPING
-@@ -382,7 +395,7 @@ class RuntimeController private constructor(private val app: Context) : DshProce
+@@ -501,7 +514,7 @@ class RuntimeController private constructor(private val app: Context) : DshProce
                  }
                  timeline.spawned()
                  val direct = directEngine()
@@ -47,7 +47,7 @@ index 8024a98..6830004 100644
                      // SafeMode.prepare writes its own briefing; leave the original home untouched.
                      if (!safe) GuestSetup.writeAgentsMd(installer.rootfs, storage, phone, pendingVisualReplies, actualDirect)
                  }
-@@ -973,6 +986,7 @@ class RuntimeController private constructor(private val app: Context) : DshProce
+@@ -1092,6 +1105,7 @@ class RuntimeController private constructor(private val app: Context) : DshProce
          private const val K_DIRECT_ENGINE = "directEngine"
          /** Runtime version Direct failed to launch with (see [SafePolicy.directLaunchFailed]). */
          private const val K_DIRECT_FAILED = "directEngineFailedRuntime"

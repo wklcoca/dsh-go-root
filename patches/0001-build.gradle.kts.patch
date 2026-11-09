@@ -1,14 +1,14 @@
-From e4fbe7b5d488fe1ff1894a4f279feba229a08964 Mon Sep 17 00:00:00 2001
+From f57fc4e2c24279d35e037f8346fdb0be9ec2c3a5 Mon Sep 17 00:00:00 2001
 From: Wrm <65333331+wklcoca@users.noreply.github.com>
 Date: Sat, 7 Nov 2026 14:34:01 +0800
-Subject: [PATCH 02/18] root112: build.gradle.kts
+Subject: [PATCH 02/21] root112: build.gradle.kts
 
 ---
  app/android/app/build.gradle.kts | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/app/android/app/build.gradle.kts b/app/android/app/build.gradle.kts
-index 3b23e84..94f769f 100644
+index 0b68e0a..99ffb5a 100644
 --- a/app/android/app/build.gradle.kts
 +++ b/app/android/app/build.gradle.kts
 @@ -43,7 +43,7 @@ android {

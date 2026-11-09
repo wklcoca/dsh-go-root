@@ -1,7 +1,7 @@
-From 4d383b38abcbd593b8abc7fe3505089f40d815c8 Mon Sep 17 00:00:00 2001
+From 08013c54bf1cae098257b6d44c5e548aced461e4 Mon Sep 17 00:00:00 2001
 From: dsh <dsh@local>
 Date: Mon, 9 Nov 2026 11:24:05 +0800
-Subject: [PATCH 18/18] fix(root): reclaim root-owned rootfs files so runtime
+Subject: [PATCH 18/21] fix(root): reclaim root-owned rootfs files so runtime
  install/upgrade never fails after root mode
 
 ---
@@ -73,10 +73,10 @@ index 0dd5d52..9596c8e 100644
          File(rootfs, "tmp/dsh-web.pid").readText().trim().toIntOrNull()?.takeIf { it > 0 }
      } catch (_: Exception) { null }
 diff --git a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeInstaller.kt b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeInstaller.kt
-index 6407699..87515de 100644
+index 1f8dbe7..bd5931b 100644
 --- a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeInstaller.kt
 +++ b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeInstaller.kt
-@@ -136,6 +136,7 @@ class RuntimeInstaller(
+@@ -141,6 +141,7 @@ class RuntimeInstaller(
  internal fun File.deleteRecursivelySafely() {
      if (isSymlink()) {
          delete()
@@ -84,7 +84,7 @@ index 6407699..87515de 100644
          return
      }
      if (isDirectory) {
-@@ -143,7 +144,9 @@ internal fun File.deleteRecursivelySafely() {
+@@ -148,7 +149,9 @@ internal fun File.deleteRecursivelySafely() {
          if (!canWrite()) setWritable(true) // no android.system off the device (JVM tests)
          listFiles()?.forEach { it.deleteRecursivelySafely() }
      }

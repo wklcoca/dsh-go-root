@@ -1,14 +1,14 @@
-From da4295b6a8d6b869faf5f22c02aa233e60246aba Mon Sep 17 00:00:00 2001
+From f84fd7dce10ff77b31b2368e31c7733fe00ac6f6 Mon Sep 17 00:00:00 2001
 From: Wrm <65333331+wklcoca@users.noreply.github.com>
 Date: Sat, 7 Nov 2026 14:34:18 +0800
-Subject: [PATCH 09/18] root112: phone_zh.arb
+Subject: [PATCH 09/21] root112: phone_zh.arb
 
 ---
  app/lib/l10n/parts/phone_zh.arb | 5 +++++
  1 file changed, 5 insertions(+)
 
 diff --git a/app/lib/l10n/parts/phone_zh.arb b/app/lib/l10n/parts/phone_zh.arb
-index 766accf..0e798d1 100644
+index bb9f34e..6e4b2a0 100644
 --- a/app/lib/l10n/parts/phone_zh.arb
 +++ b/app/lib/l10n/parts/phone_zh.arb
 @@ -634,6 +634,11 @@

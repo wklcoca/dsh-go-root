@@ -1,7 +1,7 @@
-From 0551e80f02559aaf8215b3d0f9fa1c0af31aa2df Mon Sep 17 00:00:00 2001
+From df53c64adb258422716f4faecb9e69f2d15e1094 Mon Sep 17 00:00:00 2001
 From: Wrm <65333331+wklcoca@users.noreply.github.com>
 Date: Sat, 7 Nov 2026 14:34:15 +0800
-Subject: [PATCH 08/18] root112: direct_engine_settings.dart
+Subject: [PATCH 08/21] root112: direct_engine_settings.dart
 
 ---
  .../ui/settings/direct_engine_settings.dart   | 24 +++++++++++++++++++

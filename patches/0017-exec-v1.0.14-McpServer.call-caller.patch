@@ -1,0 +1,28 @@
+From e12ff34d75d4478d9e9946be518dddb06f798c4a Mon Sep 17 00:00:00 2001
+From: dsh <dsh@local>
+Date: Tue, 10 Nov 2026 07:04:12 +0800
+Subject: [PATCH 20/21] =?UTF-8?q?fix(root-exec):=20=E9=80=82=E9=85=8D=20v1?=
+ =?UTF-8?q?.0.14=20=E7=9A=84=20McpServer.call=20=E7=AD=BE=E5=90=8D?=
+ =?UTF-8?q?=EF=BC=88=E6=96=B0=E5=A2=9E=20caller=20=E5=8F=82=E6=95=B0?=
+ =?UTF-8?q?=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ .../kotlin/io/github/ccch1mneyyy/dsh_app/rootexec/RootExec.kt   | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/rootexec/RootExec.kt b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/rootexec/RootExec.kt
+index c7b4841..671731f 100644
+--- a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/rootexec/RootExec.kt
++++ b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/rootexec/RootExec.kt
+@@ -105,7 +105,7 @@ object RootExecBridge {
+         bridge = null
+         if (safe) return false
+         return try {
+-            val server = McpServer(listOf(RootExec.tool), { name, args -> RootExec.call(name, args) })
++            val server = McpServer(listOf(RootExec.tool), { name, args, _ -> RootExec.call(name, args) })
+             val b = PhoneBridge(server) { line -> log(line) }
+             val ep = b.start(withTcp = true)
+             bridge = b

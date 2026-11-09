@@ -2,7 +2,7 @@
 
 给 [dsh-go](https://github.com/ccch1mneyyy/dsh-Go) 加一套**真 root 能力**的补丁仓库：不改上游代码风格，不提交 PR（上游明确不接受外部 PR），只以补丁 + 构建脚本的形式，把"手机容器里能用真 root 干活"这件事做到可用、可复现。
 
-> 基线：upstream `v1.0.13` · 补丁量：13 文件 / +571 行 / 18 提交 · 目标 ABI：arm64-v8a
+> 基线：upstream `v1.0.14` · 补丁量：17 文件 / 19 提交 · 目标 ABI：arm64-v8a
 
 ---
 
@@ -105,7 +105,7 @@ gh workflow run build-apk.yml -r <branch> -f flavor=arm64
 
 ```bash
 # 1. 取上游源码（指定 tag）
-git clone --depth 1 --branch v1.0.13 https://github.com/ccch1mneyyy/dsh-Go.git
+git clone --depth 1 --branch v1.0.14 https://github.com/ccch1mneyyy/dsh-Go.git
 cd dsh-Go
 
 # 2. 应用补丁
@@ -113,7 +113,7 @@ git am /path/to/patches/*.patch
 
 # 3. 复用官方 runtime（跳过 runtime/build-runtime.sh）
 curl -fL -o /tmp/official.apk \
-  https://github.com/ccch1mneyyy/dsh-Go/releases/download/v1.0.13/dsh-go-1.0.13-arm64.apk
+  https://github.com/ccch1mneyyy/dsh-Go/releases/download/v1.0.14/dsh-go-1.0.14-arm64.apk
 mkdir -p /tmp/official && (cd /tmp/official && unzip -q /tmp/official.apk)
 mkdir -p runtime/out/arm64-v8a/assets runtime/out/arm64-v8a/jniLibs/arm64-v8a
 cp -a /tmp/official/assets/runtime/. runtime/out/arm64-v8a/assets/runtime/
@@ -221,7 +221,8 @@ app/lib/
 
 | 本仓库分支 | upstream 基线 | 说明 |
 |---|---|---|
-| `root-113` | v1.0.13 | 当前：root 模式 + 多分区 + root-exec + 属主自愈 |
+| `root-114` | v1.0.14 | 当前：适配 McpServer/PhoneBridge 新签名；官方支持导入宠物包 |
+| `root-113` | v1.0.13 | root 模式 + 多分区 + root-exec + 属主自愈 |
 | `root-112` | v1.0.12 | 历史 |
 | `root-111` | v1.0.11 | 历史：首次加入 root 开关 UI |
 

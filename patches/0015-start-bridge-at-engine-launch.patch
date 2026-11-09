@@ -1,14 +1,14 @@
-From 16411a1c1ac740d0d7f8a0f179980f14cb4e9110 Mon Sep 17 00:00:00 2001
+From 7a13f909f7a9aa8f9cd9ec71c3997bbc776b4147 Mon Sep 17 00:00:00 2001
 From: Wrm <65333331+wklcoca@users.noreply.github.com>
 Date: Mon, 9 Nov 2026 09:57:45 +0800
-Subject: [PATCH 16/18] root-exec: start bridge at engine launch
+Subject: [PATCH 16/21] root-exec: start bridge at engine launch
 
 ---
  .../io/github/ccch1mneyyy/dsh_app/runtime/RuntimeController.kt  | 2 ++
  1 file changed, 2 insertions(+)
 
 diff --git a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeController.kt b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeController.kt
-index 6830004..9f5ab17 100644
+index 968c6c5..7275456 100644
 --- a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeController.kt
 +++ b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeController.kt
 @@ -11,6 +11,7 @@ import android.os.Handler
@@ -18,8 +18,8 @@ index 6830004..9f5ab17 100644
 +import io.github.ccch1mneyyy.dsh_app.rootexec.RootExecBridge
  import org.json.JSONArray
  import org.json.JSONObject
- import java.io.File
-@@ -349,6 +350,7 @@ class RuntimeController private constructor(private val app: Context) : DshProce
+ import io.github.ccch1mneyyy.dsh_app.phone.skills.PhoneSkillRoute
+@@ -468,6 +469,7 @@ class RuntimeController private constructor(private val app: Context) : DshProce
                  PhoneStorage.syncShortcut(installer.rootfs, storage)
                  // Phone control: bridge up and guest files written before DSH starts; off in safe mode.
                  val phone = PhoneControl.get(app).prepareLaunch(installer.rootfs, safe) { log(it, "system") }

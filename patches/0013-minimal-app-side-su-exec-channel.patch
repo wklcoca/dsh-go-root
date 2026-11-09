@@ -1,7 +1,7 @@
-From cb1a3c57cb1dde952844083d29927776548722e3 Mon Sep 17 00:00:00 2001
+From b310c67f2c95253f5c033358f92e2ddb9414c259 Mon Sep 17 00:00:00 2001
 From: Wrm <65333331+wklcoca@users.noreply.github.com>
 Date: Mon, 9 Nov 2026 09:57:40 +0800
-Subject: [PATCH 14/18] root-exec: minimal app-side su exec channel
+Subject: [PATCH 14/21] root-exec: minimal app-side su exec channel
 
 ---
  .../ccch1mneyyy/dsh_app/rootexec/RootExec.kt  | 137 ++++++++++++++++++

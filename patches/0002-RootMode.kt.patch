@@ -1,7 +1,7 @@
-From 4a15449965974d6de275bcc3f034aa2eef5c4c49 Mon Sep 17 00:00:00 2001
+From a4e75e040a1f89efaf97e42b54f84e4599ae6957 Mon Sep 17 00:00:00 2001
 From: Wrm <65333331+wklcoca@users.noreply.github.com>
 Date: Sat, 7 Nov 2026 14:34:03 +0800
-Subject: [PATCH 03/18] root112: RootMode.kt
+Subject: [PATCH 03/21] root112: RootMode.kt
 
 ---
  .../ccch1mneyyy/dsh_app/runtime/RootMode.kt   | 132 ++++++++++++++++++

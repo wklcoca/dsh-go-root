@@ -1,7 +1,7 @@
-From f5d6760307c25a9333b17ea58ac9cb99c9b2ea9a Mon Sep 17 00:00:00 2001
+From b6f2e8b07324a8cc4c378fc0b43675a88ca59bfd Mon Sep 17 00:00:00 2001
 From: Wrm <65333331+wklcoca@users.noreply.github.com>
 Date: Sat, 7 Nov 2026 17:46:44 +0800
-Subject: [PATCH 13/18] root: add remove() for root-owned stale files
+Subject: [PATCH 13/21] root: add remove() for root-owned stale files
 
 ---
  .../io/github/ccch1mneyyy/dsh_app/runtime/RootMode.kt      | 7 +++++++
