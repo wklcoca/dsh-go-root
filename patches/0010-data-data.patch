@@ -1,0 +1,43 @@
+From f86889576c4dca37a96df29bfd889014ebd94f04 Mon Sep 17 00:00:00 2001
+From: Wrm <65333331+wklcoca@users.noreply.github.com>
+Date: Sat, 7 Nov 2026 17:32:04 +0800
+Subject: [PATCH 11/18] =?UTF-8?q?root:=20=E6=98=A0=E5=B0=84=E6=89=8B?=
+ =?UTF-8?q?=E6=9C=BA=20/data=20=E4=B8=BA=20/data=EF=BC=8C=E5=B9=B6?=
+ =?UTF-8?q?=E5=8A=A0=E5=85=A5=E7=B3=BB=E7=BB=9F=E5=88=86=E5=8C=BA=EF=BC=88?=
+ =?UTF-8?q?=E5=8F=AF=E5=86=99=E7=BB=91=E5=AE=9A=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ .../ccch1mneyyy/dsh_app/runtime/DshProcess.kt   | 17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/DshProcess.kt b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/DshProcess.kt
+index 2e93015..2752181 100644
+--- a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/DshProcess.kt
++++ b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/DshProcess.kt
+@@ -119,8 +119,21 @@ class DshProcess(
+         val sameBind = DirectLaunch.samePathBind(rootfs)
+         val launchArgv = DirectLaunch.prootArguments(rootfs, manifest.launchArgv, direct)
+         val rootBinds = if (rootMode) {
+-            File(rootfs, "host-data").mkdirs()
+-            listOf("/data:/host-data")
++            // 真 root：把手机 /data 和系统分区映射进容器（proot 绑定可写；erofs 分区物理只读）
++            val hostMounts = listOf(
++                "/data",
++                "/product", "/system_ext", "/vendor", "/odm",
++                "/vendor_dlkm", "/system_dlkm",
++                "/my_product", "/my_bigball", "/my_heytap", "/my_region",
++                "/my_carrier", "/my_company", "/my_stock", "/my_engineering",
++                "/my_manifest", "/my_preload",
++                "/mnt/vendor", "/mnt/opex",
++                "/metadata", "/config", "/linkerconfig", "/data_mirror",
++            )
++            hostMounts.filter { File(it).exists() }.map { host ->
++                File(rootfs, host.removePrefix("/")).mkdirs()
++                "$host:$host"
++            }
+         } else emptyList()
+         val allBinds = (binds + rootBinds).filterNot { expand(it) == sameBind }.distinct()
+         // PRoot's Node resolves through glibc, which fails A with a refused AAAA (#152): add Direct's resolver.

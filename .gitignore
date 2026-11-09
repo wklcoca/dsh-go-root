@@ -1,0 +1,7 @@
+work/
+out/
+*.apk
+*.jks
+key.properties
+__pycache__/
+*.log

@@ -1,0 +1,27 @@
+From f5d6760307c25a9333b17ea58ac9cb99c9b2ea9a Mon Sep 17 00:00:00 2001
+From: Wrm <65333331+wklcoca@users.noreply.github.com>
+Date: Sat, 7 Nov 2026 17:46:44 +0800
+Subject: [PATCH 13/18] root: add remove() for root-owned stale files
+
+---
+ .../io/github/ccch1mneyyy/dsh_app/runtime/RootMode.kt      | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RootMode.kt b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RootMode.kt
+index 13e31c5..0dd5d52 100644
+--- a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RootMode.kt
++++ b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RootMode.kt
+@@ -126,6 +126,13 @@ object RootMode {
+         return findProotPids(path).isEmpty()
+     }
+ 
++    /** Remove a stale file the app uid cannot unlink (e.g. a root-owned pid file in sticky /tmp). */
++    fun remove(file: File): Boolean = try {
++        val su = suPath() ?: return false
++        ProcessBuilder(su, "-c", "rm -f -- " + quote(file.absolutePath)).start().waitFor() == 0 &&
++            !java.nio.file.Files.exists(file.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS)
++    } catch (_: Exception) { false }
++
+     private fun guestPidHint(rootfs: File): Int? = try {
+         File(rootfs, "tmp/dsh-web.pid").readText().trim().toIntOrNull()?.takeIf { it > 0 }
+     } catch (_: Exception) { null }

@@ -1,0 +1,97 @@
+From 4d383b38abcbd593b8abc7fe3505089f40d815c8 Mon Sep 17 00:00:00 2001
+From: dsh <dsh@local>
+Date: Mon, 9 Nov 2026 11:24:05 +0800
+Subject: [PATCH 18/18] fix(root): reclaim root-owned rootfs files so runtime
+ install/upgrade never fails after root mode
+
+---
+ .../ccch1mneyyy/dsh_app/runtime/DshProcess.kt | 14 ++++++++++++++
+ .../ccch1mneyyy/dsh_app/runtime/RootMode.kt   | 19 +++++++++++++++++++
+ .../dsh_app/runtime/RuntimeInstaller.kt       |  5 ++++-
+ 3 files changed, 37 insertions(+), 1 deletion(-)
+
+diff --git a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/DshProcess.kt b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/DshProcess.kt
+index 89b2cda..a4c6999 100644
+--- a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/DshProcess.kt
++++ b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/DshProcess.kt
+@@ -85,6 +85,14 @@ class DshProcess(
+     fun start(guestEnv: Map<String, String>, binds: List<String> = emptyList(), safe: Boolean = false, phone: Boolean = false, directEngine: Boolean = false, directFailed: Boolean = false, searchOverlay: Boolean = false, authOverlay: Boolean = false, speechOverlay: Boolean = false, rootEnabled: Boolean = false, onLaunchMethod: ((Boolean) -> Unit)? = null) {
+         check(process == null) { "already started" }
+         rootMode = rootEnabled && !safe && RootMode.available() && RootMode.granted()
++        // Self-heal: a crash during a root-mode run leaves uid-0 files in /root,/tmp that both a
++        // normal-mode engine and the runtime installer cannot touch. Reclaim them before launch.
++        val rootDirty = File(context.filesDir, "runtime/.root-dirty")
++        if (rootDirty.exists() && RootMode.available()) {
++            RootMode.reclaim(rootfs)
++            runCatching { rootDirty.delete() }
++        }
++        if (rootMode) runCatching { rootDirty.parentFile?.mkdirs(); rootDirty.createNewFile() }
+         var selection = DirectLaunch.select(rootfs, directEngine, safe, directFailed)
+         if (rootMode) selection = DirectLaunch.Selection(false, null)
+         // Only PRoot's fake hard links stand in Direct's way: tidy them once no runtime process is left.
+@@ -341,6 +349,12 @@ class DshProcess(
+                     // return until they exit. The waiter still retains this owner.
+                     killStrays()
+                     p.waitFor()
++                    if (rootMode) {
++                        // Hand /root,/tmp back to the app uid so normal mode and the runtime
++                        // installer keep working after a root-mode run.
++                        RootMode.reclaim(rootfs)
++                        runCatching { File(context.filesDir, "runtime/.root-dirty").delete() }
++                    }
+                 }
+             }
+         }
+diff --git a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RootMode.kt b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RootMode.kt
+index 0dd5d52..9596c8e 100644
+--- a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RootMode.kt
++++ b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RootMode.kt
+@@ -133,6 +133,25 @@ object RootMode {
+             !java.nio.file.Files.exists(file.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS)
+     } catch (_: Exception) { false }
+ 
++    /** rm -rf a tree the app uid cannot delete (root-owned leftovers from a root-mode run). */
++    fun forceDelete(target: File): Boolean = try {
++        val su = suPath() ?: return false
++        ProcessBuilder(su, "-c", "rm -rf -- " + quote(target.absolutePath)).start().waitFor() == 0 &&
++            !java.nio.file.Files.exists(target.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS)
++    } catch (_: Exception) { false }
++
++    /** Give the guest-writable trees back to the app uid after a root-mode run, so normal mode
++     *  (and the runtime installer) can read, rename and delete them again. */
++    fun reclaim(rootfs: File): Boolean = try {
++        val su = suPath() ?: return false
++        val uid = android.os.Process.myUid()
++        val targets = listOf("root", "tmp", "var/lib/dsh-app")
++            .map { File(rootfs, it) }.filter { it.exists() }
++            .joinToString(" ") { quote(it.absolutePath) }
++        if (targets.isEmpty()) true
++        else ProcessBuilder(su, "-c", "chown -R $uid:$uid $targets").start().waitFor() == 0
++    } catch (_: Exception) { false }
++
+     private fun guestPidHint(rootfs: File): Int? = try {
+         File(rootfs, "tmp/dsh-web.pid").readText().trim().toIntOrNull()?.takeIf { it > 0 }
+     } catch (_: Exception) { null }
+diff --git a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeInstaller.kt b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeInstaller.kt
+index 6407699..87515de 100644
+--- a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeInstaller.kt
++++ b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeInstaller.kt
+@@ -136,6 +136,7 @@ class RuntimeInstaller(
+ internal fun File.deleteRecursivelySafely() {
+     if (isSymlink()) {
+         delete()
++        if (present() && RootMode.available()) RootMode.forceDelete(this)
+         return
+     }
+     if (isDirectory) {
+@@ -143,7 +144,9 @@ internal fun File.deleteRecursivelySafely() {
+         if (!canWrite()) setWritable(true) // no android.system off the device (JVM tests)
+         listFiles()?.forEach { it.deleteRecursivelySafely() }
+     }
+-    delete()
++    // A tree written by a root-mode proot is owned by uid 0; the app uid cannot unlink it.
++    // Fall back to `su rm -rf` so a later runtime install/upgrade never gets stuck on it.
++    if (!delete() && RootMode.available()) RootMode.forceDelete(this)
+ }
+ 
+ private fun File.isSymlink(): Boolean = try {

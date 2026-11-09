@@ -1,0 +1,25 @@
+From da4295b6a8d6b869faf5f22c02aa233e60246aba Mon Sep 17 00:00:00 2001
+From: Wrm <65333331+wklcoca@users.noreply.github.com>
+Date: Sat, 7 Nov 2026 14:34:18 +0800
+Subject: [PATCH 09/18] root112: phone_zh.arb
+
+---
+ app/lib/l10n/parts/phone_zh.arb | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/app/lib/l10n/parts/phone_zh.arb b/app/lib/l10n/parts/phone_zh.arb
+index 766accf..0e798d1 100644
+--- a/app/lib/l10n/parts/phone_zh.arb
++++ b/app/lib/l10n/parts/phone_zh.arb
+@@ -634,6 +634,11 @@
+   "phoneAutoCollapseHint": "收成小球，点按展开",
+   "phoneDeveloperOptions": "开发者选项",
+   "phoneDirectEngine": "直接启动本机引擎",
++  "phoneRootMode": "Root 模式（实验）",
++  "phoneRootModeHint": "用 su 以真 root 启动容器；需 KernelSU/Magisk 授权，重启引擎后生效。",
++  "phoneRootNeedsRoot": "未检测到 su——需要先 root 设备",
++  "phoneRootStopFirst": "请先停止引擎再切换",
++  "phoneRootChangeFailed": "切换 Root 模式失败",
+   "phoneDirectHint": "实验功能，默认关闭，下次启动生效。部分手机（例如 Android 16）会拦截直接启动，届时自动改用兼容启动，数据不受影响。",
+   "phoneDirectFailedHint": "这台手机上直接启动没有成功，已改用兼容启动。停止引擎后打开可再试一次。",
+   "phoneDirectCompatibleHint": "这次用了兼容启动，原因见上方。已保留此选项，下次启动会再试。",

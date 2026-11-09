@@ -1,0 +1,65 @@
+From 44693cc32312f544ac058e8c87d919618c1fe26a Mon Sep 17 00:00:00 2001
+From: Wrm <65333331+wklcoca@users.noreply.github.com>
+Date: Sat, 7 Nov 2026 14:34:13 +0800
+Subject: [PATCH 07/18] root112: runtime_bridge.dart
+
+---
+ app/lib/runtime/runtime_bridge.dart | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/app/lib/runtime/runtime_bridge.dart b/app/lib/runtime/runtime_bridge.dart
+index e1464d1..de1b941 100644
+--- a/app/lib/runtime/runtime_bridge.dart
++++ b/app/lib/runtime/runtime_bridge.dart
+@@ -167,6 +167,9 @@ class RuntimeStatus {
+     this.directEngineAvailable = false,
+     this.directEngineActive = false,
+     this.directEngineFallbackReason,
++    this.rootModeEnabled = false,
++    this.rootModeAvailable = false,
++    this.rootModeActive = false,
+     this.currentExecutionMode,
+     this.launchSelectedMode,
+     this.launchSpawned = false,
+@@ -229,6 +232,11 @@ class RuntimeStatus {
+   final bool directEngineActive;
+   final String? directEngineFallbackReason;
+ 
++  /// Experimental real-root launch (needs su). A change applies on the next engine start.
++  final bool rootModeEnabled;
++  final bool rootModeAvailable;
++  final bool rootModeActive;
++
+   /// Native process observation, never inferred from the saved direct preference.
+   final String? currentExecutionMode;
+ 
+@@ -246,6 +254,9 @@ class RuntimeStatus {
+     'directEngineAvailable': directEngineAvailable,
+     'directEngineActive': directEngineActive,
+     'directEngineFallbackReason': directEngineFallbackReason,
++    'rootModeEnabled': rootModeEnabled,
++    'rootModeAvailable': rootModeAvailable,
++    'rootModeActive': rootModeActive,
+     'currentExecutionMode': currentExecutionMode,
+     'launchSelectedMode': launchSelectedMode,
+     'launchSpawned': launchSpawned,
+@@ -299,6 +310,9 @@ class RuntimeStatus {
+     directEngineAvailable: map['directEngineAvailable'] == true,
+     directEngineActive: map['directEngineActive'] == true,
+     directEngineFallbackReason: map['directEngineFallbackReason'] as String?,
++    rootModeEnabled: map['rootModeEnabled'] == true,
++    rootModeAvailable: map['rootModeAvailable'] == true,
++    rootModeActive: map['rootModeActive'] == true,
+     currentExecutionMode: map['currentExecutionMode'] as String?,
+     launchSelectedMode: map['launchSelectedMode'] as String?,
+     launchSpawned: map['launchSpawned'] == true,
+@@ -620,6 +634,9 @@ class RuntimeBridge {
+   /// Takes effect on the next start; native code rejects changes while active.
+   Future<void> setDirectEngine(bool enabled) => _methods.invokeMethod<void>('setDirectEngine', {'enabled': enabled});
+ 
++  /// Experimental real-root launch; rejected while the engine is active.
++  Future<void> setRootMode(bool enabled) => _methods.invokeMethod<void>('setRootMode', {'enabled': enabled});
++
+   /// Output around the last failure, tokens masked.
+   Future<List<String>> failureLog() async => (await _methods.invokeListMethod<String>('failureLog')) ?? const [];
+ 

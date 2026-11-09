@@ -1,0 +1,128 @@
+name: build-apk
+
+# 在 GitHub Actions（x86_64 免费 runner）上构建 arm64 APK。
+# 流程：克隆 upstream 指定 tag → 应用本仓库 patches/ → 复用官方 APK 的 runtime → flutter build。
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream:
+        description: "upstream tag（如 v1.0.13）"
+        type: string
+        default: v1.0.13
+      flavor:
+        description: "ABI flavor"
+        type: choice
+        default: arm64
+        options: [arm64, x64]
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter 3.47.7
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.7"
+          channel: stable
+          cache: true
+
+      - name: Set up Gradle 9.3.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.3.1"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK + build tools
+        run: |
+          sdkmanager --install "ndk;29.0.14206865" "platforms;android-36" "build-tools;36.0.0" >/dev/null || \
+          sdkmanager --install "ndk;29.0.14206865" "platforms;android-35" "build-tools;35.0.0" >/dev/null
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+
+      - name: Apply patches onto upstream
+        env:
+          UPSTREAM: ${{ inputs.upstream }}
+        run: |
+          chmod +x scripts/*.sh
+          OUT=work ./scripts/apply.sh
+          echo "--- patched tree ---"
+          git -C work log --oneline -5
+
+      - name: Reuse official runtime (skip runtime/build-runtime.sh)
+        env:
+          UPSTREAM: ${{ inputs.upstream }}
+        run: |
+          ABI="${{ inputs.flavor }}"
+          OUT="runtime/out/${ABI}"
+          mkdir -p "work/$OUT/assets" "work/$OUT/jniLibs/${ABI}"
+          URL="https://github.com/ccch1mneyyy/dsh-Go/releases/download/${UPSTREAM}/dsh-go-${UPSTREAM#v}-${ABI}.apk"
+          curl -fL --retry 3 --max-time 900 -o /tmp/official.apk "$URL" \
+            || curl -fL --retry 3 --max-time 900 -o /tmp/official.apk "https://ghfast.top/$URL"
+          mkdir -p /tmp/official && (cd /tmp/official && unzip -q /tmp/official.apk)
+          cp -a /tmp/official/assets/runtime/. "work/$OUT/assets/runtime/"
+          for so in /tmp/official/lib/${ABI}/libproot*.so; do
+            cp -a "$so" "work/$OUT/jniLibs/${ABI}/"
+          done
+          du -sh "work/$OUT"
+
+      - name: Configure signing
+        env:
+          KEYSTORE_B64: ${{ secrets.DSH_KEYSTORE_BASE64 }}
+          STORE_PASS: ${{ secrets.DSH_KEYSTORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.DSH_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.DSH_KEY_ALIAS }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "未配置 DSH_KEYSTORE_BASE64，将使用 debug 签名"
+            exit 0
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          cat > work/app/android/key.properties <<EOF
+          storeFile=$RUNNER_TEMP/release.jks
+          storePassword=$STORE_PASS
+          keyPassword=$KEY_PASS
+          keyAlias=$KEY_ALIAS
+          EOF
+          sed -i 's/^ *//' work/app/android/key.properties
+
+      - name: Install Flutter deps
+        run: cd work/app && flutter pub get
+
+      - name: Generate l10n from parts
+        run: cd work && python3 app/tool/l10n_merge.py
+
+      - name: Build APK
+        env:
+          ABI: ${{ inputs.flavor }}
+        run: |
+          cd work
+          chmod +x tooling/build-apk.sh
+          tooling/build-apk.sh --release -f "$ABI"
+
+      - name: Collect APK
+        run: |
+          mkdir -p out
+          find work/app/build -name "*release*.apk" -exec cp {} out/app-${ABI}-release.apk \;
+          ls -la out/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-go-apk
+          path: out/*.apk
+          if-no-files-found: error
+          compression-level: 0

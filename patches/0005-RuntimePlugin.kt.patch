@@ -1,0 +1,28 @@
+From ee2242a97537fd0ea695294d9f65dd21d6115dab Mon Sep 17 00:00:00 2001
+From: Wrm <65333331+wklcoca@users.noreply.github.com>
+Date: Sat, 7 Nov 2026 14:34:10 +0800
+Subject: [PATCH 06/18] root112: RuntimePlugin.kt
+
+---
+ .../github/ccch1mneyyy/dsh_app/runtime/RuntimePlugin.kt   | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimePlugin.kt b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimePlugin.kt
+index 146f469..496f6ad 100644
+--- a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimePlugin.kt
++++ b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimePlugin.kt
+@@ -159,6 +159,14 @@ class RuntimePlugin :
+                     result.error("launch_method_unavailable", error.message, null)
+                 }
+             }
++            "setRootMode" -> {
++                try {
++                    controller.setRootMode(call.argument<Boolean>("enabled") == true)
++                    result.success(null)
++                } catch (error: IllegalStateException) {
++                    result.error("root_mode_unavailable", error.message, null)
++                }
++            }
+             "failureLog" -> result.success(controller.failureLog())
+             "batteryExempt" -> {
+                 val pm = appContext.getSystemService(Context.POWER_SERVICE) as PowerManager
