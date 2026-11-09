@@ -2,6 +2,7 @@ name: build-apk
 
 # 在 GitHub Actions（x86_64 免费 runner）上构建 arm64 APK。
 # 流程：克隆 upstream 指定 tag → 应用本仓库 patches/ → 复用官方 APK 的 runtime → flutter build。
+# 不依赖 runtime/build-runtime.sh（那需要 x86_64 交叉构建，耗时数小时）。
 
 on:
   workflow_dispatch:
@@ -44,15 +45,6 @@ jobs:
         with:
           gradle-version: "9.3.1"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install NDK + build tools
-        run: |
-          sdkmanager --install "ndk;29.0.14206865" "platforms;android-36" "build-tools;36.0.0" >/dev/null || \
-          sdkmanager --install "ndk;29.0.14206865" "platforms;android-35" "build-tools;35.0.0" >/dev/null
-          yes | sdkmanager --licenses >/dev/null 2>&1 || true
-
       - name: Apply patches onto upstream
         env:
           UPSTREAM: ${{ inputs.upstream }}
@@ -62,48 +54,74 @@ jobs:
           echo "--- patched tree ---"
           git -C work log --oneline -5
 
+      # settings.gradle.kts 在配置阶段就会读 local.properties 的 flutter.sdk，必须先建
+      - name: Write local.properties (needed by settings.gradle.kts)
+        run: |
+          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          printf 'sdk.dir=%s\nflutter.sdk=%s\n' "$SDK" "$FLUTTER_ROOT" > work/app/android/local.properties
+          cat work/app/android/local.properties
+
+      # app/android/.gitignore 忽略了 gradlew / gradle-wrapper.jar，必须先生成
+      - name: Generate Gradle wrapper
+        working-directory: work/app/android
+        run: gradle wrapper --gradle-version 9.3.1 --distribution-type all
+
+      - name: Install Android SDK bits + Flutter's NDK
+        run: |
+          set -e
+          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          SDKM="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses >/dev/null 2>&1 || true
+          "$SDKM" "platform-tools" "platforms;android-36" "platforms;android-35" "platforms;android-34" \
+                  "build-tools;36.0.0" "build-tools;35.0.0" >/dev/null
+          NDK=$(grep -rhoE 'ndkVersion[[:space:]]*[:=][[:space:]]*"[0-9][0-9.]+"' "$FLUTTER_ROOT/packages/flutter_tools/gradle" 2>/dev/null | grep -oE '[0-9][0-9.]+' | head -1)
+          echo "flutter ndkVersion = ${NDK:-<none>}"
+          if [ -n "$NDK" ] && [ ! -d "$SDK/ndk/$NDK" ]; then "$SDKM" "ndk;$NDK" || true; fi
+
       - name: Reuse official runtime (skip runtime/build-runtime.sh)
         env:
           UPSTREAM: ${{ inputs.upstream }}
+          ABI: ${{ inputs.flavor }}
         run: |
-          ABI="${{ inputs.flavor }}"
-          OUT="runtime/out/${ABI}"
-          mkdir -p "work/$OUT/assets" "work/$OUT/jniLibs/${ABI}"
+          set -e
           URL="https://github.com/ccch1mneyyy/dsh-Go/releases/download/${UPSTREAM}/dsh-go-${UPSTREAM#v}-${ABI}.apk"
           curl -fL --retry 3 --max-time 900 -o /tmp/official.apk "$URL" \
             || curl -fL --retry 3 --max-time 900 -o /tmp/official.apk "https://ghfast.top/$URL"
           mkdir -p /tmp/official && (cd /tmp/official && unzip -q /tmp/official.apk)
-          cp -a /tmp/official/assets/runtime/. "work/$OUT/assets/runtime/"
-          for so in /tmp/official/lib/${ABI}/libproot*.so; do
-            cp -a "$so" "work/$OUT/jniLibs/${ABI}/"
+          OUT="work/runtime/out/${ABI}"
+          mkdir -p "$OUT/assets/runtime" "$OUT/jniLibs/${ABI}"
+          cp -a /tmp/official/assets/runtime/. "$OUT/assets/runtime/"
+          for so in libproot.so libproot-loader.so libtalloc.so libandroid-shmem.so; do
+            [ -e "/tmp/official/lib/${ABI}/$so" ] && cp -a "/tmp/official/lib/${ABI}/$so" "$OUT/jniLibs/${ABI}/$so"
           done
-          du -sh "work/$OUT"
+          ls "$OUT/jniLibs/${ABI}" | head
 
+      - name: flutter pub get
+        working-directory: work/app
+        run: flutter pub get
+
+      # 仓库里的合并 ARB/gen 可能落后于 parts，用 runner 的 Flutter 重新生成
+      - name: Generate l10n from parts
+        run: cd work && python3 app/tool/l10n_merge.py
+
+      # 固定签名：从 Secrets 解码 keystore，指向 key.properties，
+      # 使每次自建 APK 签名一致，可覆盖升级（无需卸载）。
       - name: Configure signing
         env:
           KEYSTORE_B64: ${{ secrets.DSH_KEYSTORE_BASE64 }}
-          STORE_PASS: ${{ secrets.DSH_KEYSTORE_PASSWORD }}
+          KS_PASS: ${{ secrets.DSH_KEYSTORE_PASSWORD }}
           KEY_PASS: ${{ secrets.DSH_KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.DSH_KEY_ALIAS }}
         run: |
-          if [ -z "$KEYSTORE_B64" ]; then
-            echo "未配置 DSH_KEYSTORE_BASE64，将使用 debug 签名"
-            exit 0
+          mkdir -p work/app/android/keys
+          printf '%s' "$KEYSTORE_B64" | base64 -d > work/app/android/keys/dsh-release.jks || true
+          if [ -s work/app/android/keys/dsh-release.jks ]; then
+            printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+              "$GITHUB_WORKSPACE/work/app/android/keys/dsh-release.jks" "$KS_PASS" "$KEY_ALIAS" "$KEY_PASS" > work/app/android/key.properties
+            echo "using fixed release keystore"
+          else
+            echo "no keystore secret; falling back to debug key"
           fi
-          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
-          cat > work/app/android/key.properties <<EOF
-          storeFile=$RUNNER_TEMP/release.jks
-          storePassword=$STORE_PASS
-          keyPassword=$KEY_PASS
-          keyAlias=$KEY_ALIAS
-          EOF
-          sed -i 's/^ *//' work/app/android/key.properties
-
-      - name: Install Flutter deps
-        run: cd work/app && flutter pub get
-
-      - name: Generate l10n from parts
-        run: cd work && python3 app/tool/l10n_merge.py
 
       - name: Build APK
         env:
@@ -116,7 +134,10 @@ jobs:
       - name: Collect APK
         run: |
           mkdir -p out
-          find work/app/build -name "*release*.apk" -exec cp {} out/app-${ABI}-release.apk \;
+          find work/app/build -name "*.apk" -path "*release*" -exec cp {} out/ \; || true
+          if [ -z "$(ls -A out)" ]; then
+            find work/app/build -name "*.apk" -exec cp {} out/ \;
+          fi
           ls -la out/
 
       - name: Upload artifact
@@ -125,4 +146,4 @@ jobs:
           name: dsh-go-apk
           path: out/*.apk
           if-no-files-found: error
-          compression-level: 0
+          retention-days: 30
