@@ -18,7 +18,7 @@ on:
         options: [arm64, x64]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   apk:
@@ -147,3 +147,51 @@ jobs:
           path: out/*.apk
           if-no-files-found: error
           retention-days: 30
+
+      # 直接在本仓库发 Release（不需要把 APK 下到本地）
+      - name: Publish release
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPSTREAM: ${{ inputs.upstream }}
+          ABI: ${{ inputs.flavor }}
+        run: |
+          set -e
+          TAG="${UPSTREAM}-root.${{ github.run_number }}"
+          SHA=$(sha256sum out/*.apk | awk '{print $1}')
+          SIZE=$(stat -c%s out/*.apk)
+          NAME=$(basename "$(ls out/*.apk | head -1)")
+          cat > /tmp/notes.md <<EOF
+          ## dsh-go ${UPSTREAM#v} + root 增强
+
+          基于 upstream \`${UPSTREAM}\`，应用 \`patches/\` 补丁构建（${ABI}）。
+
+          ### 包含
+          - **root 模式**：proot 以真 uid 0 运行（KernelSU / Magisk）
+          - **多分区挂载**：\`/data\`、\`/product\`、\`/vendor\`、\`/my_*\` 直接可见
+          - **root-exec 通道**（\`dsh-root\`）：在 proot 外以真 root 执行命令，\`TracerPid: 0\`，可用于 frida-server
+          - **rootfs 属主自愈**：修复 root 模式后"解压时出错"、崩溃后起不来
+
+          ### 安装
+          - 包名 \`io.github.ccch1mneyyy.dsh_app.dev\`，与官方版并存
+          - 固定签名，可覆盖升级（无需卸载）
+
+          ### 校验
+          \`\`\`
+          sha256  ${SHA}
+          size    ${SIZE}
+          \`\`\`
+
+          ### 启用 root
+          设置 → 诊断 → 开发者选项 → root 模式 → 重启引擎 → 允许 su 授权。
+
+          详见 [README](https://github.com/wklcoca/dsh-go-root#readme)。
+          EOF
+          sed -i 's/^          //' /tmp/notes.md
+          cp out/*.apk "out/dsh-go-${UPSTREAM#v}-root-${ABI}.apk"
+          gh release create "$TAG" "out/dsh-go-${UPSTREAM#v}-root-${ABI}.apk" \
+            --title "dsh-go ${UPSTREAM#v} + root 增强" \
+            --notes-file /tmp/notes.md \
+            --prerelease \
+            --target "${{ github.sha }}"
+          echo "released $TAG ($NAME, $SIZE bytes)"
