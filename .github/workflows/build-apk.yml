@@ -88,13 +88,28 @@ jobs:
           curl -fL --retry 3 --max-time 900 -o /tmp/official.apk "$URL" \
             || curl -fL --retry 3 --max-time 900 -o /tmp/official.apk "https://ghfast.top/$URL"
           mkdir -p /tmp/official && (cd /tmp/official && unzip -q /tmp/official.apk)
-          OUT="work/runtime/out/${ABI}"
-          mkdir -p "$OUT/assets/runtime" "$OUT/jniLibs/${ABI}"
+          # 注意：APK 里的目录名是 arm64-v8a / x86_64，不是 arm64 / x64
+          case "$ABI" in
+            arm64) ANDROID_ABI=arm64-v8a ;;
+            x64)   ANDROID_ABI=x86_64 ;;
+            *)     ANDROID_ABI="$ABI" ;;
+          esac
+          echo "flavor=$ABI android_abi=$ANDROID_ABI"
+          test -d /tmp/official/assets/runtime || { echo "官方 APK 里没有 assets/runtime"; exit 1; }
+          OUT="work/runtime/out/${ANDROID_ABI}"
+          mkdir -p "$OUT/assets/runtime" "$OUT/jniLibs/${ANDROID_ABI}"
           cp -a /tmp/official/assets/runtime/. "$OUT/assets/runtime/"
           for so in libproot.so libproot-loader.so libtalloc.so libandroid-shmem.so; do
-            [ -e "/tmp/official/lib/${ABI}/$so" ] && cp -a "/tmp/official/lib/${ABI}/$so" "$OUT/jniLibs/${ABI}/$so"
+            if [ -e "/tmp/official/lib/${ANDROID_ABI}/$so" ]; then
+              cp -a "/tmp/official/lib/${ANDROID_ABI}/$so" "$OUT/jniLibs/${ANDROID_ABI}/$so"
+            else
+              echo "缺少 /tmp/official/lib/${ANDROID_ABI}/$so"
+            fi
           done
-          ls "$OUT/jniLibs/${ABI}" | head
+          echo "--- assets/runtime ---"; du -sh "$OUT/assets/runtime"; ls "$OUT/assets/runtime" | head -5
+          echo "--- jniLibs ---"; ls -la "$OUT/jniLibs/${ANDROID_ABI}"
+          test -n "$(ls -A "$OUT/jniLibs/${ANDROID_ABI}")" || { echo "jniLibs 为空"; exit 1; }
+          du -sh "$OUT"
 
       - name: flutter pub get
         working-directory: work/app
