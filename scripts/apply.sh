@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # 把补丁集应用到指定 upstream 版本，产出可构建的源码树。
 #
-#   ./scripts/apply.sh                 # 默认 v1.0.13，输出到 work/
+#   ./scripts/apply.sh                 # 默认 v1.0.15，输出到 work/
 #   UPSTREAM=v1.0.14 ./scripts/apply.sh
 #   OUT=/tmp/build ./scripts/apply.sh
 #
 # 依赖：git、bash。首次会浅克隆上游（约 5MB，--filter=blob:none）。
 set -euo pipefail
 
-UPSTREAM="${UPSTREAM:-v1.0.13}"
+UPSTREAM="${UPSTREAM:-v1.0.15}"
 OUT="${OUT:-work}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PATCHES="$ROOT/patches"

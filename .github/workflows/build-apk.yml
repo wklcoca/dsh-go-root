@@ -10,7 +10,7 @@ on:
       upstream:
         description: "upstream tag（如 v1.0.13）"
         type: string
-        default: v1.0.14
+        default: v1.0.15
       flavor:
         description: "ABI flavor"
         type: choice
@@ -138,6 +138,10 @@ jobs:
             echo "no keystore secret; falling back to debug key"
           fi
 
+      - name: Test runtime upgrade compatibility
+        working-directory: work/app/android
+        run: ./gradlew :app:testArm64DebugUnitTest --tests '*EngineUpgradeTest' --tests '*RuntimeUpgradeCompatibilityTest' --tests '*RuntimeUpgradeIntegrationTest' --tests '*RootEngineReclaimTest'
+
       - name: Build APK
         env:
           ABI: ${{ inputs.flavor }}
@@ -190,6 +194,8 @@ jobs:
           ### 安装
           - 包名 \`io.github.ccch1mneyyy.dsh_app.dev\`，与官方版并存
           - 固定签名，可覆盖升级（无需卸载）
+          - v1.0.15 使用保留 Linux 系统的引擎升级流程；root 增强补充升级前的精确引擎路径属主归还。
+          - 尚未安装到真机验证；请保留备份，遇到升级阻断不要重置或卸载。
 
           ### 校验
           \`\`\`

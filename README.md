@@ -2,7 +2,7 @@
 
 给 [dsh-go](https://github.com/ccch1mneyyy/dsh-Go) 加一套**真 root 能力**的补丁仓库：不改上游代码风格，不提交 PR（上游明确不接受外部 PR），只以补丁 + 构建脚本的形式，把"手机容器里能用真 root 干活"这件事做到可用、可复现。
 
-> 基线：upstream `v1.0.14` · 补丁量：17 文件 / 19 提交 · 目标 ABI：arm64-v8a
+> 基线：upstream `v1.0.15` · 补丁量：19 个 · 目标 ABI：arm64-v8a
 
 ---
 
@@ -105,7 +105,7 @@ gh workflow run build-apk.yml -r <branch> -f flavor=arm64
 
 ```bash
 # 1. 取上游源码（指定 tag）
-git clone --depth 1 --branch v1.0.14 https://github.com/ccch1mneyyy/dsh-Go.git
+git clone --depth 1 --branch v1.0.15 https://github.com/ccch1mneyyy/dsh-Go.git
 cd dsh-Go
 
 # 2. 应用补丁
@@ -113,7 +113,7 @@ git am /path/to/patches/*.patch
 
 # 3. 复用官方 runtime（跳过 runtime/build-runtime.sh）
 curl -fL -o /tmp/official.apk \
-  https://github.com/ccch1mneyyy/dsh-Go/releases/download/v1.0.14/dsh-go-1.0.14-arm64.apk
+  https://github.com/ccch1mneyyy/dsh-Go/releases/download/v1.0.15/dsh-go-1.0.15-arm64.apk
 mkdir -p /tmp/official && (cd /tmp/official && unzip -q /tmp/official.apk)
 mkdir -p runtime/out/arm64-v8a/assets runtime/out/arm64-v8a/jniLibs/arm64-v8a
 cp -a /tmp/official/assets/runtime/. runtime/out/arm64-v8a/assets/runtime/
@@ -168,7 +168,7 @@ TracerPid:	0
 | PRoot 内不能 `mount` / `nsenter` | proot 拦截 syscall，`/proc/1/ns/mnt` 打不开。要 mount 必须走 `dsh-root` |
 | 系统分区只读 | `/product`、`/vendor`、`/my_*` 是 erofs，改系统需 KernelSU 模块 |
 | root 模式启动较慢 | 每次启动要过一次 su 授权检查（20s 上限） |
-| 运行时升级会清 `/usr` | apt 装的工具（frida 客户端、apktool 等）会丢，跑 `bash /root/tools/install-re.sh` 恢复；`/root` 不受影响 |
+| 引擎升级（v1.0.15+） | 仅替换上游管理的精确引擎路径，保留 apt/npm/pip 工具与配置；root 模式升级前归还这些引擎路径及父目录属主。保留备份，升级受阻时不要重置或卸载 |
 | 与"手机操控"共用 socket 层 | root-exec 复用 `PhoneBridge` 的抽象 socket 实现，允许 uid 0 连接 |
 
 ---
@@ -221,7 +221,8 @@ app/lib/
 
 | 本仓库分支 | upstream 基线 | 说明 |
 |---|---|---|
-| `root-114` | v1.0.14 | 当前：适配 McpServer/PhoneBridge 新签名；官方支持导入宠物包 |
+| `root-115` | v1.0.15 | 当前：保留 Linux 系统的升级流程 + root 引擎路径属主归还；CI 增加升级事务及属主命令测试 |
+| `root-114` | v1.0.14 | 适配 McpServer/PhoneBridge 新签名；官方支持导入宠物包 |
 | `root-113` | v1.0.13 | root 模式 + 多分区 + root-exec + 属主自愈 |
 | `root-112` | v1.0.12 | 历史 |
 | `root-111` | v1.0.11 | 历史：首次加入 root 开关 UI |

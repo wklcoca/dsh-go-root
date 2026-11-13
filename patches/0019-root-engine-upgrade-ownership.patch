@@ -1,0 +1,124 @@
+From b50b13ce0d700ceb438e5eecfcde99ee0ba0ae38 Mon Sep 17 00:00:00 2001
+From: dsh-go-root patches <patch@local>
+Date: Fri, 13 Nov 2026 09:00:14 +0800
+Subject: [PATCH] fix(root): reclaim exact managed engine paths before v1.0.15
+ upgrade
+
+---
+ .../ccch1mneyyy/dsh_app/runtime/RootMode.kt   | 30 ++++++++++++
+ .../dsh_app/runtime/RuntimeController.kt      |  4 ++
+ .../dsh_app/runtime/RootEngineReclaimTest.kt  | 46 +++++++++++++++++++
+ 3 files changed, 80 insertions(+)
+ create mode 100644 app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RootEngineReclaimTest.kt
+
+diff --git a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RootMode.kt b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RootMode.kt
+index 9596c8e0..d437b96d 100644
+--- a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RootMode.kt
++++ b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RootMode.kt
+@@ -152,6 +152,36 @@ object RootMode {
+         else ProcessBuilder(su, "-c", "chown -R $uid:$uid $targets").start().waitFor() == 0
+     } catch (_: Exception) { false }
+ 
++    /** Reclaim only the exact engine payload and its parent directories before an in-place upgrade.
++     * Never traverse a symlinked parent (which could lead outside this rootfs). */
++    fun reclaimEngine(rootfs: File): Boolean = try {
++        val su = suPath() ?: return false
++        ProcessBuilder(su, "-c", engineReclaimCommand(rootfs, android.os.Process.myUid())).start().waitFor() == 0
++    } catch (_: Exception) { false }
++
++    internal fun engineReclaimCommand(rootfs: File, uid: Int): String {
++        val paths = ENGINE_PATHS.map { File(rootfs, it) }
++        val parents = linkedSetOf<File>()
++        for (path in paths) {
++            var parent = path.parentFile
++            while (parent != null) {
++                parents.add(parent)
++                if (parent == rootfs) break
++                parent = parent.parentFile
++            }
++        }
++        val checks = parents.joinToString("; ") { "[ ! -L ${quote(it.absolutePath)} ] || exit 1" }
++        val reclaimParents = parents.joinToString("; ") {
++            val path = quote(it.absolutePath)
++            "if [ -e $path ]; then chown -h $uid:$uid $path || exit 1; fi"
++        }
++        val reclaimPayload = paths.joinToString("; ") {
++            val path = quote(it.absolutePath)
++            "if [ -e $path ] || [ -L $path ]; then chown -hR $uid:$uid $path || exit 1; fi"
++        }
++        return "$checks; $reclaimParents; $reclaimPayload"
++    }
++
+     private fun guestPidHint(rootfs: File): Int? = try {
+         File(rootfs, "tmp/dsh-web.pid").readText().trim().toIntOrNull()?.takeIf { it > 0 }
+     } catch (_: Exception) { null }
+diff --git a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeController.kt b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeController.kt
+index 9607b83c..4bb37957 100644
+--- a/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeController.kt
++++ b/app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeController.kt
+@@ -238,6 +238,10 @@ class RuntimeController private constructor(private val app: Context) : DshProce
+                     !DshProcess(app, manifest, installer.rootfs, this).killStrays()) {
+                     throw RuntimeUpgradeBlocked("running")
+                 }
++                if (installer.rootfs.exists() && RootMode.available() &&
++                    (rootModeEnabled() || File(installer.baseDir, ".root-dirty").exists())) {
++                    check(RootMode.reclaimEngine(installer.rootfs)) { "could not reclaim root-owned engine paths; stop the engine and retry" }
++                }
+                 if (dropKept) log("[dsh-app] installing without what could not be kept", "system")
+                 installer.install(dropKept) { done, total ->
+                     emit(mapOf("type" to "progress", "step" to "extract", "done" to done, "total" to total))
+diff --git a/app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RootEngineReclaimTest.kt b/app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RootEngineReclaimTest.kt
+new file mode 100644
+index 00000000..24f98292
+--- /dev/null
++++ b/app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RootEngineReclaimTest.kt
+@@ -0,0 +1,46 @@
++package io.github.ccch1mneyyy.dsh_app.runtime
++
++import java.io.File
++import java.nio.file.Files
++import org.junit.After
++import org.junit.Assert.*
++import org.junit.Test
++
++class RootEngineReclaimTest {
++    private val base = Files.createTempDirectory("root-reclaim").toFile()
++    @After fun cleanup() { base.deleteRecursively() }
++
++    private fun run(root: File): Pair<Int, List<String>> {
++        val bin = File(base, "bin").apply { mkdirs() }
++        val log = File(base, "calls")
++        File(bin, "chown").apply {
++            writeText("#!/bin/sh\nprintf '%s\\n' \"\$*\" >> " + RootMode.quote(log.path) + "\n")
++            setExecutable(true)
++        }
++        val process = ProcessBuilder("sh", "-c", RootMode.engineReclaimCommand(root, 12345))
++        process.environment()["PATH"] = bin.path + ":" + System.getenv("PATH")
++        val child = process.start()
++        return child.waitFor() to if (log.exists()) log.readLines() else emptyList()
++    }
++
++    @Test fun reclaimsExactEngineTreesButNotWholeSystemDirectories() {
++        val root = File(base, "root fs'").apply { mkdirs() }
++        File(root, "opt/dsh").mkdirs()
++        File(root, "usr/local/bin").mkdirs()
++        Files.createSymbolicLink(File(root, "usr/local/bin/node").toPath(), java.nio.file.Path.of("/missing/node"))
++        val (exit, calls) = run(root)
++        assertEquals(0, exit)
++        assertTrue(calls.contains("-hR 12345:12345 ${root.path}/opt/dsh"))
++        assertTrue(calls.contains("-hR 12345:12345 ${root.path}/usr/local/bin/node"))
++        assertFalse(calls.any { it == "-hR 12345:12345 ${root.path}/opt" || it == "-hR 12345:12345 ${root.path}/usr" })
++    }
++
++    @Test fun refusesSymlinkedParentsBeforeAnyChown() {
++        val root = File(base, "rootfs").apply { mkdirs() }
++        val outside = File(base, "outside").apply { mkdirs() }
++        Files.createSymbolicLink(File(root, "opt").toPath(), outside.toPath())
++        val (exit, calls) = run(root)
++        assertNotEquals(0, exit)
++        assertTrue(calls.isEmpty())
++    }
++}
+-- 
+2.43.0
+

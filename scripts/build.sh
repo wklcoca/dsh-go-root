@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # 构建 arm64 APK：复用官方 release APK 里自带的 runtime，跳过 runtime/build-runtime.sh。
 #
-#   ./scripts/build.sh                    # 用 work/ 源码 + v1.0.13 runtime
-#   OUT=work UPSTREAM=v1.0.13 ./scripts/build.sh
+#   ./scripts/build.sh                    # 用 work/ 源码 + v1.0.15 runtime
+#   OUT=work UPSTREAM=v1.0.15 ./scripts/build.sh
 #   KEYSTORE=/path/app.jks KEYSTORE_PASSWORD=x KEY_PASSWORD=y KEY_ALIAS=dsh ./scripts/build.sh
 #
 # 依赖：Flutter 3.47.7、JDK 17、Android SDK 34-36、unzip、curl。
 set -euo pipefail
 
 OUT="${OUT:-work}"
-UPSTREAM="${UPSTREAM:-v1.0.13}"
+UPSTREAM="${UPSTREAM:-v1.0.15}"
 ABI="${ABI:-arm64}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -26,16 +26,21 @@ if [ ! -f "$OFFICIAL_APK" ]; then
     || curl -fL --retry 3 --max-time 900 -o "$OFFICIAL_APK" "https://ghfast.top/$URL"
 fi
 
-RT="runtime/out/${ABI}"
-mkdir -p "$RT/assets" "$RT/jniLibs/${ABI}"
-if [ ! -d "$RT/assets/runtime" ] || [ -z "$(ls -A "$RT/jniLibs/${ABI}" 2>/dev/null)" ]; then
+case "$ABI" in
+  arm64) ANDROID_ABI=arm64-v8a ;;
+  x64) ANDROID_ABI=x86_64 ;;
+  *) echo "不支持的 ABI: $ABI"; exit 1 ;;
+esac
+RT="runtime/out/${ANDROID_ABI}"
+mkdir -p "$RT/assets" "$RT/jniLibs/${ANDROID_ABI}"
+if [ ! -d "$RT/assets/runtime" ] || [ -z "$(ls -A "$RT/jniLibs/${ANDROID_ABI}" 2>/dev/null)" ]; then
   echo "==> 从官方 APK 提取 runtime"
   TMP="$(mktemp -d)"
   ( cd "$TMP" && unzip -q "$OFFICIAL_APK" )
   mkdir -p "$RT/assets/runtime"
   cp -a "$TMP/assets/runtime/." "$RT/assets/runtime/"
-  for so in "$TMP/lib/${ABI}"/libproot*.so; do
-    [ -e "$so" ] && cp -a "$so" "$RT/jniLibs/${ABI}/"
+  for name in libproot.so libproot-loader.so libtalloc.so libandroid-shmem.so; do
+    cp -a "$TMP/lib/${ANDROID_ABI}/$name" "$RT/jniLibs/${ANDROID_ABI}/"
   done
   rm -rf "$TMP"
 fi
